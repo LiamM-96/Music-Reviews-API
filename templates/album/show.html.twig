@@ -1,0 +1,175 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ album.artist }} – {{ album.title }}{% endblock %}
+
+{% block body %}
+{% set apiTitle = musicInfo and musicInfo.releaseGroup ? musicInfo.releaseGroup.title ?? null : null %}
+{% set apiArtist = musicInfo and musicInfo.artist ? musicInfo.artist.name ?? null : null %}
+{% set apiReleaseDate = musicInfo and musicInfo.releaseGroup ? musicInfo.releaseGroup.firstReleaseDate ?? null : null %}
+{% set apiYear = apiReleaseDate ? apiReleaseDate|slice(0, 4) : null %}
+{% set apiTags = musicInfo and musicInfo.releaseGroup ? musicInfo.releaseGroup.tags ?? [] : [] %}
+{% set apiCover = musicInfo and musicInfo.coverArt ? (musicInfo.coverArt.image ?? musicInfo.coverArt.thumbnail ?? null) : null %}
+
+{% set displayArtist = apiArtist ?: album.artist %}
+{% set displayTitle = apiTitle ?: album.title %}
+{% set displayYear = apiYear ?: album.releaseYear %}
+{% set displayCover = apiCover ?: (album.coverImagePath ? asset(album.coverImagePath) : null) %}
+
+<div class="page-wrapper">
+    <h1>{{ displayArtist }} – {{ displayTitle }}</h1>
+
+    <div class="album-layout" style="display:flex; gap:2rem; align-items:flex-start; margin-top:1.5rem;">
+        <div class="album-cover" style="flex:0 0 250px;">
+            {% if displayCover %}
+                <img
+                    src="{{ displayCover }}"
+                    alt="Cover for {{ displayTitle }}"
+                    style="width:250px; height:250px; object-fit:cover; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.25);"
+                >
+            {% else %}
+                <div style="width:250px; height:250px; border:1px solid #555; display:flex; align-items:center; justify-content:center; border-radius:8px;">
+                    No cover image
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="album-info" style="flex:1;">
+            <p><strong>Artist:</strong> {{ displayArtist }}</p>
+            <p><strong>Title:</strong> {{ displayTitle }}</p>
+
+            {% if apiTags is not empty %}
+                <p><strong>Tags:</strong> {{ apiTags|join(', ') }}</p>
+            {% else %}
+                <p><strong>Genre:</strong> {{ album.genre ? album.genre.name : 'Unknown' }}</p>
+            {% endif %}
+
+            <p><strong>Release year:</strong> {{ displayYear ?? 'Unknown' }}</p>
+
+            {% set avg = album.averageRating %}
+            {% set count = album.reviewCount %}
+            {% if avg is not null %}
+                <p>
+                    <strong>Average rating:</strong>
+                    {{ avg|number_format(1) }}/10
+                    (based on {{ count }} review{{ count == 1 ? '' : 's' }})
+                </p>
+            {% else %}
+                <p><strong>Average rating:</strong> Not rated yet</p>
+            {% endif %}
+
+            {% if is_granted('ROLE_ADMIN') %}
+                <p><strong>Created at:</strong> {{ album.createdAt ? album.createdAt|date('Y-m-d H:i') : 'N/A' }}</p>
+                <p><strong>Updated at:</strong> {{ album.updatedAt ? album.updatedAt|date('Y-m-d H:i') : 'Never' }}</p>
+            {% endif %}
+
+            <p style="margin-top:1rem;">
+                <a href="{{ path('album_index') }}">Back to list</a>
+            </p>
+
+            {% if is_granted('ROLE_ADMIN') %}
+                <div style="margin-top:1rem;">
+                    <a href="{{ path('album_edit', {id: album.id}) }}" class="btn btn-small">
+                        Edit album
+                    </a>
+
+                    <form method="post"
+                          action="{{ path('album_delete', {id: album.id}) }}"
+                          style="display:inline-block; margin-left:0.5rem;"
+                          onsubmit="return confirm('Are you sure you want to delete this album? This cannot be undone.');">
+                        <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ album.id) }}">
+                        <button class="btn btn-small btn-danger">Delete album</button>
+                    </form>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <hr style="margin:2rem 0;">
+
+    <section class="music-extra">
+        <h2>Additional Music Information</h2>
+
+        {% if musicInfo %}
+            <div style="margin-top:1rem;">
+                <p><strong>Release Type:</strong> {{ musicInfo.releaseGroup.primaryType ?? 'Unknown' }}</p>
+                <p><strong>Release Date:</strong> {{ musicInfo.releaseGroup.firstReleaseDate ?? 'Unknown' }}</p>
+                <p><strong>Artist Origin:</strong> {{ musicInfo.artist.country ?? 'Unknown' }}</p>
+
+                {% if musicInfo.releaseGroup.disambiguation %}
+                    <p><strong>Notes:</strong> {{ musicInfo.releaseGroup.disambiguation }}</p>
+                {% endif %}
+
+                {% if musicInfo.releaseGroup.musicBrainzUrl %}
+                    <p>
+                        <a href="{{ musicInfo.releaseGroup.musicBrainzUrl }}" target="_blank" rel="noopener noreferrer">
+                            View this release on MusicBrainz
+                        </a>
+                    </p>
+                {% endif %}
+            </div>
+        {% else %}
+            <p>No external music information could be found for this album right now.</p>
+        {% endif %}
+    </section>
+
+    <hr style="margin:2rem 0;">
+
+    <section class="reviews-section">
+        <h2>Reviews</h2>
+
+        {% if is_granted('ROLE_USER') %}
+            <p>
+                <a href="{{ path('review_new', {albumId: album.id}) }}" class="btn btn-small">
+                    Write a review
+                </a>
+            </p>
+        {% else %}
+            <p><a href="{{ path('login') }}">Log in</a> to write a review.</p>
+        {% endif %}
+
+        {% if album.reviews|length == 0 %}
+            <p>No reviews yet. Be the first to review this album!</p>
+        {% else %}
+            <ul class="review-list" style="list-style:none; padding-left:0; margin-top:1rem;">
+                {% for review in album.reviews %}
+                    <li class="review-item" style="margin-bottom:1.5rem;">
+                        <div>
+                            <strong>{{ review.user.displayName ?? review.user.email }}</strong>
+                            rated it <strong>{{ review.rating }}/10</strong>
+                        </div>
+
+                        {% if review.title %}
+                            <div><em>{{ review.title }}</em></div>
+                        {% endif %}
+
+                        <div>{{ review.body }}</div>
+
+                        <div style="font-size:0.85em; color:#aaa;">
+                            Posted {{ review.createdAt|date('Y-m-d H:i') }}
+                            {% if review.updatedAt %}
+                                (edited {{ review.updatedAt|date('Y-m-d H:i') }})
+                            {% endif %}
+                        </div>
+
+                        {% if app.user and (app.user == review.user or is_granted('ROLE_ADMIN')) %}
+                            <div style="margin-top:0.3rem;">
+                                <a href="{{ path('review_edit', {id: review.id}) }}" class="btn btn-tiny">
+                                    Edit
+                                </a>
+
+                                <form method="post"
+                                      action="{{ path('review_delete', {id: review.id}) }}"
+                                      style="display:inline-block; margin-left:0.3rem;"
+                                      onsubmit="return confirm('Delete this review?');">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ review.id) }}">
+                                    <button class="btn btn-tiny btn-danger">Delete</button>
+                                </form>
+                            </div>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

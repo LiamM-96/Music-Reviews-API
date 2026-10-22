@@ -1,0 +1,25 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Welcome{% endblock %}
+
+{% block body %}
+<h1>Welcome to the Music Review Website</h1>
+
+<nav>
+    <ul>
+        <li><a href="{{ path('album_index') }}">Browse Albums</a></li>
+        <li><a href="{{ path('about') }}">About Us</a></li>
+
+        {% if app.user %}
+            <li><strong>Logged in as:</strong> {{ app.user.displayName }}</li>
+            <li><a href="{{ path('logout') }}">Logout</a></li>
+        {% else %}
+            <li><a href="{{ path('login') }}">Login</a></li>
+        {% endif %}
+    </ul>
+</nav>
+
+<hr>
+
+<p>This project allows users to browse albums, write reviews, upload album info, and rate music.</p>
+{% endblock %}

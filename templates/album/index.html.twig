@@ -1,0 +1,216 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Albums{% endblock %}
+
+{% block body %}
+<div class="page-wrapper">
+    <h1>Albums</h1>
+
+    <style>
+        .album-filters {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 1rem;
+            align-items: flex-end;
+            margin: 1.5rem 0 2rem 0;
+        }
+
+        .album-filters .field-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .album-filters .field-group label {
+            font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .album-filters .field-group input,
+        .album-filters .field-group select {
+            min-width: 170px;
+        }
+
+        .album-filters .button-group {
+            margin-left: auto;
+        }
+
+        .album-filters .button-group button {
+            padding: 0.45rem 1.1rem;
+            cursor: pointer;
+        }
+
+        .album-list {
+            margin-top: 1rem;
+        }
+
+        .album-row {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #444;
+            align-items: flex-start;
+        }
+
+        .album-thumb {
+            flex: 0 0 200px;
+        }
+
+        .album-thumb img,
+        .album-thumb .no-cover {
+            width: 200px;
+            height: 200px;
+            border-radius: 8px;
+            object-fit: cover;
+        }
+
+        .album-thumb img {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+
+        .album-thumb .no-cover {
+            border: 1px solid #555;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+
+        .album-summary {
+            flex: 1;
+        }
+
+        .album-summary h3 {
+            margin: 0 0 0.25rem 0;
+        }
+
+        .album-summary h3 a {
+            text-decoration: none;
+        }
+
+        .album-summary p {
+            margin: 0.2rem 0;
+        }
+
+        .album-summary .meta {
+            font-size: 0.95rem;
+            color: #ccc;
+        }
+
+        .album-summary .admin-actions {
+            margin-top: 0.75rem;
+        }
+
+        .album-summary .admin-actions form {
+            display: inline-block;
+            margin-left: 0.5rem;
+        }
+    </style>
+
+    {{ form_start(search_form, {
+        method: 'get',
+        attr: { class: 'album-filters' }
+    }) }}
+        <div class="field-group">
+            {{ form_label(search_form.q, 'Keyword') }}
+            {{ form_widget(search_form.q, {
+                attr: { placeholder: 'Search by title or artist' }
+            }) }}
+        </div>
+
+        <div class="field-group">
+            {{ form_label(search_form.genre, 'Genre') }}
+            {{ form_widget(search_form.genre) }}
+        </div>
+
+        <div class="field-group">
+            {{ form_label(search_form.yearFrom, 'From year') }}
+            {{ form_widget(search_form.yearFrom) }}
+        </div>
+
+        <div class="field-group">
+            {{ form_label(search_form.yearTo, 'To year') }}
+            {{ form_widget(search_form.yearTo) }}
+        </div>
+
+        <div class="field-group button-group">
+            <label>&nbsp;</label>
+            <button type="submit">Search</button>
+        </div>
+    {{ form_end(search_form) }}
+
+    <div class="album-list">
+        {% if albums is empty %}
+            <p>No albums found.</p>
+        {% else %}
+            {% for album in albums %}
+                {% set musicInfo = musicInfoMap[album.id] ?? null %}
+                {% set apiTitle = musicInfo and musicInfo.releaseGroup ? musicInfo.releaseGroup.title ?? null : null %}
+                {% set apiArtist = musicInfo and musicInfo.artist ? musicInfo.artist.name ?? null : null %}
+                {% set apiReleaseDate = musicInfo and musicInfo.releaseGroup ? musicInfo.releaseGroup.firstReleaseDate ?? null : null %}
+                {% set apiYear = apiReleaseDate ? apiReleaseDate|slice(0, 4) : null %}
+                {% set apiTags = musicInfo and musicInfo.releaseGroup ? musicInfo.releaseGroup.tags ?? [] : [] %}
+                {% set apiGenre = apiTags is not empty ? apiTags|first : null %}
+                {% set apiCover = musicInfo and musicInfo.coverArt ? (musicInfo.coverArt.thumbnail ?? musicInfo.coverArt.image ?? null) : null %}
+
+                {% set displayArtist = apiArtist ?: album.artist %}
+                {% set displayTitle = apiTitle ?: album.title %}
+                {% set displayYear = apiYear ?: album.releaseYear %}
+                {% set displayGenre = apiGenre ?: (album.genre ? album.genre.name : 'Unknown') %}
+                {% set displayCover = apiCover ?: (album.coverImagePath ? asset(album.coverImagePath) : null) %}
+
+                <div class="album-row">
+                    <div class="album-thumb">
+                        {% if displayCover %}
+                            <img src="{{ displayCover }}" alt="Cover for {{ displayTitle }}">
+                        {% else %}
+                            <div class="no-cover">
+                                No cover image
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="album-summary">
+                        <h3>
+                            <a href="{{ path('album_show', {id: album.id}) }}">
+                                {{ displayArtist }} – {{ displayTitle }}
+                            </a>
+                        </h3>
+
+                        <p class="meta"><strong>Genre:</strong> {{ displayGenre }}</p>
+                        <p class="meta"><strong>Release year:</strong> {{ displayYear ?? 'Unknown' }}</p>
+
+                        {% set avg = album.averageRating %}
+                        {% set count = album.reviewCount %}
+                        {% if avg is not null %}
+                            <p class="meta">
+                                <strong>Average rating:</strong>
+                                {{ avg|number_format(1) }}/10
+                                ({{ count }} review{{ count == 1 ? '' : 's' }})
+                            </p>
+                        {% else %}
+                            <p class="meta"><strong>Average rating:</strong> Not rated yet</p>
+                        {% endif %}
+
+                        {% if is_granted('ROLE_ADMIN') %}
+                            <div class="admin-actions">
+                                <a href="{{ path('album_edit', {id: album.id}) }}" class="btn btn-tiny">
+                                    Edit
+                                </a>
+
+                                <form method="post"
+                                      action="{{ path('album_delete', {id: album.id}) }}"
+                                      onsubmit="return confirm('Are you sure you want to delete this album?');">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ album.id) }}">
+                                    <button class="btn btn-tiny btn-danger">Delete</button>
+                                </form>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

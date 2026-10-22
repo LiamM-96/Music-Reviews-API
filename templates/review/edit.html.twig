@@ -1,0 +1,37 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Edit review{% endblock %}
+
+{% block body %}
+<div style="max-width: 900px; margin: 2rem auto; color: #f5f5f5;">
+    <h1 style="font-size: 2rem; margin-bottom: 1rem;">
+        Edit your review for {{ review.album.title }}
+    </h1>
+
+    {{ form_start(form) }}
+        <div style="margin-bottom: 1rem;">
+            {{ form_label(form.rating) }}
+            {{ form_widget(form.rating) }}
+            {{ form_errors(form.rating) }}
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+            {{ form_label(form.title) }}
+            {{ form_widget(form.title) }}
+            {{ form_errors(form.title) }}
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+            {{ form_label(form.body) }}
+            {{ form_widget(form.body, { attr: { rows: 4 } }) }}
+            {{ form_errors(form.body) }}
+        </div>
+
+        <button type="submit">Save changes</button>
+    {{ form_end(form) }}
+
+    <p style="margin-top:1rem;">
+        <a href="{{ path('album_show', { id: review.album.id }) }}">Back to album</a>
+    </p>
+</div>
+{% endblock %}
